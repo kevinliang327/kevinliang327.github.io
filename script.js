@@ -54,8 +54,16 @@ function makeProducerDiv(producer) {
   const html = `
   <div class="producer-column">
     <div class="producer-title">${displayName}</div>
-    <button type="button" id="buy_${producer.id}">Buy</button>
-    <button type="button" id="sell_${producer.id}">Sell</button>
+    <div class="buy">
+      <button type="button" id="buy_${producer.id}">Buy</button>
+      <span class="price"> ${producer.price} coffee </span>
+    </div>
+    <div class="sell">
+      <button type="button" id="sell_${producer.id}">Sell </button>
+      <span class="price"> ${Math.ceil(
+        updateSellPrice(producer.price) / 4
+      )} coffee </span>
+    </div>
   </div>
   <div class="producer-column">
     <div>Quantity: ${producer.qty}</div>
@@ -194,8 +202,22 @@ function sellButtonClick(event, data) {
       updateCoffeeView(data.coffee);
       updateCPSView(data.totalCPS);
     } else {
-      window.alert(`Not enough ${makeDisplayNameFromId(unwantedProducerId)}!`);
+      window.alert(
+        `You have no ${makeDisplayNameFromId(unwantedProducerId)} to sell!`
+      );
     }
+  }
+}
+
+function save(data) {
+  window.localStorage.setItem("saveData", JSON.stringify(data));
+}
+
+// user can save game manually, though the game state is automattically saved every second
+function saveGameButtonClick(event, data) {
+  if (event.target.tagName === "BUTTON" && event.target.id === "save_game") {
+    save(data);
+    event.target.innerText = "Saved!";
   }
 }
 
@@ -203,6 +225,8 @@ function tick(data) {
   // your code here
   data.coffee += data.totalCPS;
   updateCoffeeView(data.coffee);
+  // useful when loading from local save data
+  updateCPSView(data.totalCPS);
   renderProducers(data);
 }
 
@@ -223,7 +247,12 @@ function tick(data) {
 if (typeof process === "undefined") {
   // Get starting data from the window object
   // (This comes from data.js)
-  const data = window.data;
+  if (Object.hasOwn(window.localStorage, "saveData")) {
+    const saveData = window.localStorage.getItem("saveData");
+    data = JSON.parse(saveData);
+  } else {
+    const data = window.data;
+  }
 
   // Add an event listener to the giant coffee emoji
   const bigCoffee = document.getElementById("big_coffee");
@@ -237,8 +266,22 @@ if (typeof process === "undefined") {
     sellButtonClick(event, data);
   });
 
+  const newOrSaveGame = document.getElementById("new-or-save-game");
+  newOrSaveGame.addEventListener("click", (event) => {
+    if (event.target.tagName === "BUTTON" && event.target.id === "new_game") {
+      if (confirm("Start a new game?\nAll of your progress will be erased!")) {
+        data = window.newData;
+      }
+    }
+    saveGameButtonClick(event, data);
+  });
+
   // Call the tick function passing in the data object once per second
-  setInterval(() => tick(data), 1000);
+  // also saves every second
+  setInterval(() => {
+    tick(data);
+    save(data);
+  }, 1000);
 }
 // Meanwhile, if we aren't in a browser and are instead in node
 // we'll need to exports the code written here so we can import and
@@ -257,11 +300,8 @@ else if (process) {
     updateCPSView,
     getProducerById,
     canAffordProducer,
-    canSellProducer,
     updatePrice,
-    updateSellPrice,
     attemptToBuyProducer,
-    attemptToSellProducer,
     buyButtonClick,
     tick,
   };
