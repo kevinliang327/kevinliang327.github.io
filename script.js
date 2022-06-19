@@ -8,13 +8,13 @@ function updateCoffeeView(coffeeQty) {
   // your code here
   const coffeeCounter = document.getElementById("coffee_counter");
 
-  coffeeCounter.innerText = parseInt(coffeeCounter.innerText) + coffeeQty;
+  coffeeCounter.innerText = coffeeQty;
 }
 
 function clickCoffee(data) {
   // your code here
   data.coffee += 1;
-  updateCoffeeView(1);
+  updateCoffeeView(data.coffee);
   renderProducers(data);
 }
 
@@ -97,30 +97,73 @@ function renderProducers(data) {
 
 function getProducerById(data, producerId) {
   // your code here
+  let producerById = {};
+
+  data.producers.forEach((producer) => {
+    if (producer.id === producerId) {
+      producerById = producer;
+    }
+  });
+
+  return producerById;
 }
 
 function canAffordProducer(data, producerId) {
   // your code here
+  if (data.coffee >= getProducerById(data, producerId).price) {
+    return true;
+  }
+
+  return false;
 }
 
 function updateCPSView(cps) {
   // your code here
+  const cpsIndicator = document.getElementById("cps");
+
+  cpsIndicator.innerText = cps;
 }
 
 function updatePrice(oldPrice) {
   // your code here
+  return Math.floor(oldPrice * 1.25);
 }
 
 function attemptToBuyProducer(data, producerId) {
   // your code here
+  let wantedProducer = getProducerById(data, producerId);
+
+  if (canAffordProducer(data, producerId)) {
+    wantedProducer.qty += 1;
+    data.coffee -= wantedProducer.price;
+    wantedProducer.price = updatePrice(wantedProducer.price);
+    data.totalCPS += wantedProducer.cps;
+
+    return true;
+  }
+
+  return false;
 }
 
 function buyButtonClick(event, data) {
   // your code here
+  if (event.target.tagName === "BUTTON") {
+    if (canAffordProducer(data, event.target.id.slice(4))) {
+      attemptToBuyProducer(data, event.target.id.slice(4));
+      renderProducers(data);
+      updateCoffeeView(data.coffee);
+      updateCPSView(data.totalCPS);
+    } else {
+      window.alert("Not enough coffee!");
+    }
+  }
 }
 
 function tick(data) {
   // your code here
+  data.coffee += data.totalCPS;
+  updateCoffeeView(data.coffee);
+  renderProducers(data);
 }
 
 /*************************
