@@ -24,7 +24,7 @@ function clickCoffee(data) {
 
 function unlockProducers(producers, coffeeCount) {
   // your code here
-  producers.forEach((producer) => {
+  return producers.map((producer) => {
     if (coffeeCount >= producer.price / 2) {
       producer.unlocked = true;
     }
@@ -33,15 +33,7 @@ function unlockProducers(producers, coffeeCount) {
 
 function getUnlockedProducers(data) {
   // your code here
-  let unlockedProducers = [];
-
-  data.producers.forEach((producer) => {
-    if (producer.unlocked) {
-      unlockedProducers.push(producer);
-    }
-  });
-
-  return unlockedProducers;
+  return data.producers.filter((producer) => producer.unlocked);
 }
 
 function makeDisplayNameFromId(id) {
@@ -58,10 +50,12 @@ function makeProducerDiv(producer) {
   containerDiv.className = "producer";
   const displayName = makeDisplayNameFromId(producer.id);
   const currentCost = producer.price;
+
   const html = `
   <div class="producer-column">
     <div class="producer-title">${displayName}</div>
     <button type="button" id="buy_${producer.id}">Buy</button>
+    <button type="button" id="sell_${producer.id}">Sell</button>
   </div>
   <div class="producer-column">
     <div>Quantity: ${producer.qty}</div>
@@ -86,7 +80,7 @@ function renderProducers(data) {
 
   deleteAllChildNodes(producerContainer);
   unlockProducers(data.producers, data.coffee);
-  getUnlockedProducers(data).forEach((unlockedProducer) => {
+  getUnlockedProducers(data).map((unlockedProducer) => {
     producerContainer.appendChild(makeProducerDiv(unlockedProducer));
   });
 }
@@ -97,20 +91,21 @@ function renderProducers(data) {
 
 function getProducerById(data, producerId) {
   // your code here
-  let producerById = {};
-
-  data.producers.forEach((producer) => {
-    if (producer.id === producerId) {
-      producerById = producer;
-    }
-  });
-
-  return producerById;
+  return data.producers.filter((producer) => producer.id === producerId)[0];
 }
 
 function canAffordProducer(data, producerId) {
   // your code here
   if (data.coffee >= getProducerById(data, producerId).price) {
+    return true;
+  }
+
+  return false;
+}
+
+function canSellProducer(data, producerId) {
+  // your code here
+  if (getProducerById(data, producerId).qty > 0) {
     return true;
   }
 
@@ -129,6 +124,11 @@ function updatePrice(oldPrice) {
   return Math.floor(oldPrice * 1.25);
 }
 
+function updateSellPrice(oldPrice) {
+  // try to revert price back to old price before buying
+  return Math.ceil(oldPrice / 1.25);
+}
+
 function attemptToBuyProducer(data, producerId) {
   // your code here
   let wantedProducer = getProducerById(data, producerId);
@@ -145,16 +145,56 @@ function attemptToBuyProducer(data, producerId) {
   return false;
 }
 
+function attemptToSellProducer(data, producerId) {
+  let unwantedProducer = getProducerById(data, producerId);
+
+  if (canSellProducer(data, producerId)) {
+    unwantedProducer.qty -= 1;
+    // want to sell for 1/4 of the PREVIOUS price
+    data.coffee += Math.ceil(updateSellPrice(unwantedProducer.price) / 4);
+    unwantedProducer.price = updateSellPrice(unwantedProducer.price);
+    data.totalCPS -= unwantedProducer.cps;
+
+    return true;
+  }
+
+  return false;
+}
+
 function buyButtonClick(event, data) {
   // your code here
-  if (event.target.tagName === "BUTTON") {
-    if (canAffordProducer(data, event.target.id.slice(4))) {
-      attemptToBuyProducer(data, event.target.id.slice(4));
+  if (
+    event.target.tagName === "BUTTON" &&
+    event.target.id.slice(0, 3) === "buy"
+  ) {
+    let wantedProducerId = getProducerById(data, event.target.id.slice(4)).id;
+
+    if (canAffordProducer(data, wantedProducerId)) {
+      attemptToBuyProducer(data, wantedProducerId);
       renderProducers(data);
       updateCoffeeView(data.coffee);
       updateCPSView(data.totalCPS);
     } else {
       window.alert("Not enough coffee!");
+    }
+  }
+}
+
+function sellButtonClick(event, data) {
+  // your code here
+  if (
+    event.target.tagName === "BUTTON" &&
+    event.target.id.slice(0, 4) === "sell"
+  ) {
+    let unwantedProducerId = getProducerById(data, event.target.id.slice(5)).id;
+
+    if (canSellProducer(data, unwantedProducerId)) {
+      attemptToSellProducer(data, unwantedProducerId);
+      renderProducers(data);
+      updateCoffeeView(data.coffee);
+      updateCPSView(data.totalCPS);
+    } else {
+      window.alert(`Not enough ${makeDisplayNameFromId(unwantedProducerId)}!`);
     }
   }
 }
@@ -194,6 +234,7 @@ if (typeof process === "undefined") {
   const producerContainer = document.getElementById("producer_container");
   producerContainer.addEventListener("click", (event) => {
     buyButtonClick(event, data);
+    sellButtonClick(event, data);
   });
 
   // Call the tick function passing in the data object once per second
@@ -216,8 +257,11 @@ else if (process) {
     updateCPSView,
     getProducerById,
     canAffordProducer,
+    canSellProducer,
     updatePrice,
+    updateSellPrice,
     attemptToBuyProducer,
+    attemptToSellProducer,
     buyButtonClick,
     tick,
   };
